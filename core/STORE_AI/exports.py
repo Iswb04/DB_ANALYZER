@@ -1,32 +1,22 @@
-import os
 import csv
-from itertools import count
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
 
 
 def salvar_csv(colunas, dados):
-
     if not colunas or not dados:
-        print("Dados insuficientes para exportar CSV.")
-
+        print("\nNão há dados para exportar.")
+        return
     pasta = Path.home() / "Downloads"
-
-    timestamp = datetime.now().strftime("%Y%m%d")
-
-    for i in count(1):
-        caminho = os.path.join(pasta, f"dados{i}_{timestamp}.csv")
-        if not os.path.exists(caminho):
-            break
-
-    try:
-        with open(caminho, mode="w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f, delimiter=";")
-            writer.writerow(colunas)
-            writer.writerows(dados)
-
-        print(f"CSV salvo em: {caminho}")
-        return f"CSV salvo em: {caminho}"
-
-    except Exception as e:
-        return f"Erro ao salvar CSV: {e}"
+    pasta.mkdir(parents=True, exist_ok=True)
+    base = datetime.now().strftime("%Y%m%d_%H%M%S")
+    caminho = pasta / f"dados_{base}.csv"
+    indice = 1
+    while caminho.exists():
+        caminho = pasta / f"dados_{base}_{indice}.csv"
+        indice += 1
+    with caminho.open("w", newline="", encoding="utf-8-sig") as arquivo:
+        writer = csv.writer(arquivo, delimiter=";")
+        writer.writerow(colunas)
+        writer.writerows(dados)
+    print(f"\nCSV salvo em: {caminho}")

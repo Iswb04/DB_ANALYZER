@@ -7,7 +7,7 @@ import builtins
 import time
 import os
 import re
-import ctypes
+from threading import Event
 
 # Ajustar o path para poder importar o core
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -149,6 +149,10 @@ class GUI_Terminal(cctk.CTk):
             pady=5
         )
 
+        self.cancel_event = Event()
+        self.awaiting_response = False
+        self.awaiting_choice = False
+
         # Filas
         self.output_queue = queue.Queue()
         self.input_queue = queue.Queue()
@@ -179,8 +183,6 @@ class GUI_Terminal(cctk.CTk):
         self.thinking_dots = 0
         self.thinking_line_index = None
 
-        # Mantido para compatibilidade
-        self.waiting_for_insight = False
 
         # Iniciar worker
         self.iniciar_worker()
@@ -357,6 +359,8 @@ class GUI_Terminal(cctk.CTk):
         )
 
         # Esperar resposta
+        self.awaiting_response = True
+        self.awaiting_choice = "Gerar gráfico?" in prompt or "Exportar CSV?" in prompt
         while True:
 
             try:
@@ -368,6 +372,8 @@ class GUI_Terminal(cctk.CTk):
                 self.thinking_start_time = time.time()
                 self.is_thinking = True
 
+                self.awaiting_response = False
+                self.awaiting_choice = False
                 return valor
 
             except queue.Empty:
@@ -423,6 +429,8 @@ class GUI_Terminal(cctk.CTk):
             state="disabled"
         )
 
+        self.cancel_event.clear()
+
         # Mostrar pergunta
         self.output_queue.put(
             f"\nVocê: {texto}\n"
@@ -441,56 +449,14 @@ class GUI_Terminal(cctk.CTk):
     # ---------------------------------------------------------
 
     def cancelar_comando(self):
-
+        # Não força interrupção de threads (pode corromper o estado do Python).
+        # O cancelamento é verificado entre etapas do pipeline.
+        self.cancel_event.set()
         self.is_thinking = False
-
-        self.output_queue.put(
-            "\nBusca interrompida pelo usuário!\n"
-        )
-
-        if self.worker_thread.is_alive():
-
-            thread_id = self.worker_thread.ident
-
-            try:
-
-                res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                    ctypes.c_long(thread_id),
-                    ctypes.py_object(KeyboardInterrupt)
-                )
-
-                if res > 1:
-
-                    ctypes.pythonapi.PyThreadState_SetAsyncExc(
-                        ctypes.c_long(thread_id),
-                        None
-                    )
-
-            except Exception:
-                pass
-
-        # Limpar fila
-        while not self.input_queue.empty():
-
-            try:
-                self.input_queue.get_nowait()
-            except queue.Empty:
-                break
-
-        # Reabilitar entrada
-        self.after(
-            0,
-            lambda: self.entry.configure(
-                state="normal"
-            )
-        )
-
-        self.after(
-            0,
-            lambda: self.btn_buscar.configure(
-                state="normal"
-            )
-        )
+        self.output_queue.put("\nCancelamento solicitado.\n")
+        # Se estiver aguardando S/N, libera o worker.
+        if self.awaiting_choice and self.input_queue.empty():
+            self.input_queue.put("N")
 
     # ---------------------------------------------------------
     # ATUALIZAR TEXTBOX
@@ -614,7 +580,7 @@ class GUI_Terminal(cctk.CTk):
                 #
                 # Portanto NÃO fazemos print() aqui.
                 rodar_pipeline(
-                    pergunta
+                    pergunta, cancelado=self.cancel_event
                 )
 
             except KeyboardInterrupt:
@@ -623,9 +589,7 @@ class GUI_Terminal(cctk.CTk):
 
             except Exception as e:
 
-                print(
-                    f"\nErro no loop: {e}"
-                )
+                print("\nNão foi possível concluir a consulta.")
 
                 time.sleep(1)
 

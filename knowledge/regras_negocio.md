@@ -56,7 +56,7 @@ SELECT SUM(preco * quantidade) AS valor_estoque
 FROM produtos;
 ```
 
-**O valor do estoque não representa faturamento ou receita de produtos.**
+**O valor do estoque não representa faturamento ou receita de vendas.**
 
 ## Preço
 
@@ -84,16 +84,16 @@ Quando mencionar um modelo, utilizar a coluna `modelo`.
 
 ## Perguntas sobre produtos
 
-A tabela `produtos` contém informações de produtos e estoque, mas não possui registros de transações de produtos.
+A tabela `produtos` contém informações de produtos e estoque, mas não possui registros de transações de vendas.
 
 Portanto, não é possível determinar:
 
 - Qual produto foi mais vendido.
 - Qual marca vendeu mais.
 - Quantas unidades foram vendidas.
-- O faturamento obtido com produtos.
-- A receita total de produtos.
+- O faturamento obtido com vendas.
+- A receita total de vendas.
 
-Quando o usuário fizer essas perguntas, informar que o banco contém apenas dados de estoque e não possui histórico de produtos.
+Quando o usuário fizer essas perguntas, informar que o banco contém apenas dados de estoque e não possui histórico de vendas.
 
 **Nunca apresentar a quantidade em estoque como quantidade vendida.**

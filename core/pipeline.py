@@ -1,337 +1,197 @@
-
+"""Fluxo de consultas: estoque, SQL somente leitura, resposta e exportação."""
 import logging
 import re
-import time
 import unicodedata
+from pathlib import Path
 
 import sqlglot
 from sqlglot import exp
-
-from core.STORE_AI.llm import gerar_sql, llm_exp
-from core.STORE_AI.rag import buscar_contexto
 from core.DB.create import conectar
+from core.STORE_AI.llm import gerar_sql, explicar
+from core.STORE_AI.rag import buscar_contexto
 from core.STORE_AI.charts import gerar_grafico
 from core.STORE_AI.exports import salvar_csv
 
+LOG = logging.getLogger("db_reader")
+LOG.setLevel(logging.ERROR)
+LOG.propagate = False
+if not LOG.handlers:
+    handler = logging.FileHandler(Path(__file__).resolve().parents[1] / "erro_pipeline.log", encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    LOG.addHandler(handler)
 
-# ==========================================
-# CONFIGURAÇÕES
-# ==========================================
+COLUNAS = "id, produto, preco, marca, modelo, quantidade"
 
-# Desativa os logs técnicos do pipeline no terminal
-logger = logging.getLogger("DB_READER")
-logger.handlers.clear()
-logger.addHandler(logging.NullHandler())
-logger.propagate = False
-logger.disabled = True
-
-
-# ==========================================
-# VALIDAÇÃO DE PERGUNTAS
-# ==========================================
 
 def normalizar(texto):
-    texto = unicodedata.normalize(
-        "NFKD", texto.lower().strip()
-    )
-
-    texto = "".join(
-        caractere
-        for caractere in texto
-        if not unicodedata.combining(caractere)
-    )
-
+    texto = unicodedata.normalize("NFKD", str(texto).lower().strip())
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
     return re.sub(r"\s+", " ", texto).strip("!?., ")
 
 
 def verificar_saudacao(pergunta):
-    saudacoes = {
-        "oi",
-        "ola",
-        "opa",
-        "e ai",
-        "bom dia",
-        "boa tarde",
-        "boa noite",
-        "tudo bem",
-        "oi tudo bem",
-    }
-
-    return normalizar(pergunta) in saudacoes
+    return normalizar(pergunta) in {"oi", "ola", "opa", "e ai", "bom dia", "boa tarde", "boa noite", "tudo bem", "oi tudo bem"}
 
 
-# ==========================================
-# VALIDAÇÃO SQL
-# ==========================================
+def pergunta_sobre_vendas(pergunta):
+    texto = normalizar(pergunta)
+    return any(re.search(p, texto) for p in (
+        r"\bvendid[oa]s?\b", r"\bvendeu\b", r"\bvenderam\b", r"\bvendas?\b",
+        r"\bvender\b", r"\bfaturamento\b", r"\breceita(?:s)?\b", r"\blucro(?:s)?\b",
+        r"\bcomercializad[oa]s?\b", r"\bmais vendido\b", r"\bmenos vendido\b"
+    ))
+
 
 def validar_sql(sql):
+    """Aceita SELECT simples apenas em produtos; evita GROUP BY inválido."""
     try:
-        consultas = sqlglot.parse(sql, read="mysql")
-
-        # Permite somente uma instrução
-        if len(consultas) != 1:
+        statements = sqlglot.parse(sql, read="mysql")
+        if len(statements) != 1 or not isinstance(statements[0], exp.Select):
             return False
-
-        consulta = consultas[0]
-
-        # Permite apenas SELECT
-        if not isinstance(consulta, exp.Select):
+        consulta = statements[0]
+        bloqueados = (exp.Insert, exp.Update, exp.Delete, exp.Create, exp.Drop, exp.Alter,
+                      exp.Command, exp.Union, exp.Subquery, exp.With, exp.Join, exp.Into)
+        if any(isinstance(n, bloqueados) for n in consulta.walk()):
             return False
-
-        # Bloqueia operações não permitidas
-        tipos_proibidos = (
-            exp.Insert,
-            exp.Update,
-            exp.Delete,
-            exp.Create,
-            exp.Drop,
-            exp.Alter,
-            exp.Command,
-            exp.Subquery,
-            exp.Union,
-        )
-
-        if any(
-            isinstance(no, tipos_proibidos)
-            for no in consulta.walk()
-        ):
-            return False
-
-        # Permite acesso somente à tabela produtos
         tabelas = list(consulta.find_all(exp.Table))
-
-        if not tabelas:
+        if len(tabelas) != 1 or tabelas[0].name.lower() != "produtos" or tabelas[0].db or tabelas[0].catalog:
             return False
-
-        if any(
-            tabela.name.lower() != "produtos"
-            or tabela.db
-            or tabela.catalog
-            for tabela in tabelas
-        ):
-            return False
-
+        for no in consulta.walk():
+            if isinstance(no, exp.Anonymous) and no.name.upper() in {"LOAD_FILE", "SLEEP", "BENCHMARK", "GET_LOCK", "RELEASE_LOCK"}:
+                return False
+        # Não executar consultas com GROUP BY potencialmente inválido sob ONLY_FULL_GROUP_BY.
+        grupo = consulta.args.get("group")
+        if grupo:
+            chaves = {g.sql(dialect="mysql").lower() for g in grupo.expressions}
+            for proj in consulta.expressions:
+                expr = proj.this if isinstance(proj, exp.Alias) else proj
+                if isinstance(expr, exp.Star):
+                    return False
+                if any(isinstance(n, exp.AggFunc) for n in expr.walk()):
+                    # expressão agregada pode conter colunas internas
+                    continue
+                if isinstance(expr, exp.Literal):
+                    continue
+                if expr.sql(dialect="mysql").lower() not in chaves:
+                    return False
+        elif any(isinstance(n, exp.AggFunc) for n in consulta.expressions for n in n.walk()):
+            # Evita SELECT id, SUM(quantidade) sem GROUP BY.
+            for proj in consulta.expressions:
+                expr = proj.this if isinstance(proj, exp.Alias) else proj
+                if isinstance(expr, exp.Column) or isinstance(expr, exp.Star):
+                    return False
         return True
-
     except Exception:
         return False
 
 
-# ==========================================
-# IDENTIFICAÇÃO DE LISTAGENS
-# ==========================================
+def sql_frequente(pergunta):
+    texto = normalizar(pergunta)
+    # Perguntas sobre unidades de estoque não são contagem de registros.
+    if re.search(r"\b(quantas|quantos|total|soma)\b", texto) and re.search(r"\b(unidades|estoque|quantidade)\b", texto) and not re.search(r"\b(maior|menor|marca|modelo|mouse|notebook|teclado|monitor)\b", texto):
+        return "SELECT COALESCE(SUM(quantidade), 0) AS unidades_em_estoque FROM produtos"
+    if re.search(r"\b(quantos|quantas|numero de|total de)\b", texto) and re.search(r"\b(itens|produtos|registros|modelos)\b", texto) and not re.search(r"\b(unidades|estoque|marca|modelo|mouse|notebook|teclado|monitor)\b", texto):
+        return "SELECT COUNT(*) AS total_registros FROM produtos"
+    if re.search(r"\b(itens|produtos|registros)\b", texto) and re.search(r"\b(disponiveis|disponivel|em estoque)\b", texto) and not re.search(r"\b(quantos|quantas|total|maior|menor|valor|preco)\b", texto):
+        return f"SELECT {COLUNAS} FROM produtos WHERE quantidade > 0 ORDER BY produto, marca, modelo"
+    if re.search(r"\b(todos|todas|listar|liste|mostre|mostrar|exiba|quero|retorne|verifique|consulte)\b", texto) and re.search(r"\b(itens|produtos|registros)\b", texto) and not re.search(r"\b(quantos|quantas|maior|menor|caro|barato|marca|modelo|valor|preco)\b", texto):
+        return f"SELECT {COLUNAS} FROM produtos ORDER BY produto, marca, modelo"
+    return None
+
 
 def verificar_listagem(pergunta):
     texto = normalizar(pergunta)
-
-    termos = (
-        "listar",
-        "liste",
-        "mostre",
-        "mostrar",
-        "retorne os itens",
-        "retornar os itens",
-        "todos os itens",
-        "todos os produtos",
-        "todos os registros",
-        "verifique o banco",
-        "consulte o banco",
-    )
-
-    return any(termo in texto for termo in termos)
+    return bool(re.search(r"\b(listar|liste|mostre|mostrar|exiba|todos|todas|itens disponiveis|produtos disponiveis|quero itens|quero produtos|retorne os itens)\b", texto))
 
 
-# ==========================================
-# FORMATAÇÃO DE LISTAGENS
-# ==========================================
-
-def formatar_listagem(dados_formatados):
-    linhas = []
-
-    for registro in dados_formatados:
-        partes = []
-
-        for coluna, valor in registro.items():
-            if valor is not None:
-                partes.append(f"{coluna}: {valor}")
-
-        linhas.append(" | ".join(partes))
-
-    return "\n".join(linhas)
+def formatar_listagem(registros):
+    return "\n".join(" | ".join(f"{k}: {v}" for k, v in item.items() if v is not None) for item in registros)
 
 
-# ==========================================
-# PIPELINE PRINCIPAL
-# ==========================================
-
-def rodar_pipeline(pergunta):
+def rodar_pipeline(pergunta, cancelado=None):
+    """cancelado: threading.Event opcional para cancelamento cooperativo."""
+    def interrompido():
+        return cancelado is not None and cancelado.is_set()
 
     pergunta = str(pergunta).strip()
-
-    # 1. Verifica pergunta vazia
-    if not pergunta:
-        print("\nDigite uma pergunta válida.")
+    if not pergunta or interrompido():
         return
-
-    # 2. Trata cumprimentos sem chamar a IA
     if verificar_saudacao(pergunta):
-        print(
-            "\nOlá! Sou o DB Reader. "
-            "Como posso te ajudar?"
-        )
+        print("\nOlá! Sou o DB Reader. Como posso te ajudar?")
+        return
+    if pergunta_sobre_vendas(pergunta):
+        print("\nNão há histórico de vendas. Este banco contém apenas produtos, preços e estoque disponível.")
         return
 
-    # 3. Busca contexto no RAG
+    sql_direto = sql_frequente(pergunta)
     try:
-        contexto = buscar_contexto(pergunta)
-
+        sql = sql_direto or gerar_sql(pergunta, buscar_contexto(pergunta)).strip()
     except Exception:
-        print(
-            "\nNão foi possível recuperar as "
-            "informações necessárias."
-        )
+        LOG.exception("Falha ao gerar SQL ou recuperar RAG")
+        if not interrompido():
+            print("\nNão foi possível interpretar a pergunta. Verifique se o Ollama está em execução.")
         return
-
-    # 4. Gera SQL com Ollama
-    try:
-        sql = gerar_sql(pergunta, contexto).strip()
-
-    except Exception:
-        print(
-            "\nNão foi possível interpretar sua pergunta."
-        )
+    if interrompido():
         return
-
-    # 5. Trata consultas inválidas
     if sql.upper() == "INVALID":
-        print(
-            "\nNão identifiquei uma consulta relacionada "
-            "ao banco de dados."
-        )
+        print("\nNão foi possível relacionar a pergunta aos dados de produtos e estoque.")
         return
-
-    # 6. Valida a SQL
     if not validar_sql(sql):
-        print(
-            "\nNão foi possível realizar essa consulta. "
-            "Tente reformular sua pergunta."
-        )
+        LOG.error("SQL rejeitado: %s", sql)
+        print("\nA consulta gerada não é válida. Tente descrever a pergunta de outra forma.")
         return
 
-    # 7. Consulta o MySQL
-    con = None
-    cursor = None
-
+    con = cursor = None
     try:
         con = conectar("store")
         cursor = con.cursor()
-
         cursor.execute(sql)
-
-        colunas = [
-            descricao[0]
-            for descricao in cursor.description
-        ] if cursor.description else []
-
+        colunas = [d[0] for d in cursor.description] if cursor.description else []
         dados = cursor.fetchall() if colunas else []
-
     except Exception:
-        print(
-            "\nOcorreu um erro ao consultar o banco. "
-            "Por favor, reformule sua pergunta."
-        )
+        LOG.exception("Falha ao executar consulta SQL: %s", sql)
+        if not interrompido():
+            print("\nNão foi possível consultar o banco. Confira a conexão e o arquivo erro_pipeline.log.")
         return
-
     finally:
         if cursor is not None:
             cursor.close()
-
         if con is not None:
             con.close()
-
-    # 8. Verifica se existem resultados
-    if not dados:
-        print(
-            "\nNão foram encontrados dados "
-            "para essa pergunta."
-        )
+    if interrompido():
         return
-
-    # 9. Formata os resultados
-    dados_formatados = [
-        dict(zip(colunas, linha))
-        for linha in dados
-    ]
-
-    # 10. Gera a resposta
-    if verificar_listagem(pergunta):
-
-        # Listagens são exibidas diretamente,
-        # evitando que o LLM omita registros.
-        resposta = formatar_listagem(dados_formatados)
-
+    if not dados:
+        print("\nNenhum produto encontrado.")
+        return
+    registros = [dict(zip(colunas, linha)) for linha in dados]
+    if sql_direto or verificar_listagem(pergunta):
+        resposta = formatar_listagem(registros)
     else:
         try:
-            prompt = f"""
-Você é o DB Reader, um assistente de análise de dados.
-
-Responda à pergunta do usuário usando SOMENTE
-os dados retornados pelo banco de dados.
-
-REGRAS:
-- Responda em português brasileiro.
-- Responda exatamente ao que foi solicitado.
-- Não invente informações.
-- Não utilize informações de perguntas anteriores.
-- Não repita a pergunta.
-- Não faça introduções desnecessárias.
-- Não destaque preços ou quantidades se isso
-  não tiver sido solicitado.
-- Para análises, responda em até 2 frases.
-- Se houver apenas um resultado, seja direto.
-- Se houver vários resultados, respeite
-  a intenção da pergunta.
-
-PERGUNTA DO USUÁRIO:
-{pergunta}
-
-DADOS RETORNADOS PELO BANCO:
-{dados_formatados}
-
-RESPOSTA:
-"""
-
-            resposta = llm_exp.invoke(prompt).strip()
-
+            resposta = explicar(pergunta, registros)
         except Exception:
-            print(
-                "\nNão foi possível gerar a resposta."
-            )
-            return
-
-    # 11. Exibe a resposta na interface
-    print(f"\n{resposta}")
-
-    # 12. Pergunta sobre gráfico
+            LOG.exception("Falha na explicação do Ollama")
+            resposta = formatar_listagem(registros)
+    if interrompido():
+        return
+    print("\n" + resposta)
+    if interrompido():
+        return
     try:
-        opcao = input(
-            "\nGerar gráfico? (S ou N): "
-        ).strip().upper()
-
-        if opcao in ("S", "SIM"):
+        if input("\nGerar gráfico? (S ou N): ").strip().upper() in {"S", "SIM"} and not interrompido():
             gerar_grafico(colunas, dados)
-
+    except (EOFError, KeyboardInterrupt):
+        return
     except Exception:
+        LOG.exception("Falha ao gerar gráfico")
         print("\nNão foi possível gerar o gráfico.")
-
-    # 13. Pergunta sobre CSV
+    if interrompido():
+        return
     try:
-        opcao = input(
-            "\nExportar CSV? (S ou N): "
-        ).strip().upper()
-
-        if opcao in ("S", "SIM"):
+        if input("\nExportar CSV? (S ou N): ").strip().upper() in {"S", "SIM"} and not interrompido():
             salvar_csv(colunas, dados)
-
+    except (EOFError, KeyboardInterrupt):
+        return
     except Exception:
+        LOG.exception("Falha ao exportar CSV")
         print("\nNão foi possível exportar o CSV.")

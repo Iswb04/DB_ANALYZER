@@ -2,7 +2,7 @@
 import mysql.connector
 from core.DB.create import criar_banco, conectar
 
-# tabela de teste !!! 
+# Catálogo inicial: só insere quando a tabela está vazia.
 
 
 dados = [

@@ -176,8 +176,8 @@ WHERE marca = 'Logitech';
 
 - A coluna `quantidade` representa unidades disponíveis em estoque.
 - A coluna `preco` representa o preço unitário do produto.
-- A tabela `produtos`, apesar do nome, contém informações de produtos e estoque.
-- Não existem registros de produtos realizadas.
+- A tabela `produtos` contém informações de produtos e estoque.
+- Não existem registros de vendas realizadas.
 - Não utilizar expressões como `total_vendido`, `quantidade_vendida` ou `faturamento`.
-- Quando o usuário perguntar sobre produtos realizadas, informar que o banco não possui histórico de produtos.
+- Quando o usuário perguntar sobre vendas realizadas, informar que o banco não possui histórico de vendas.
 - Nunca interpretar estoque como quantidade vendida.

@@ -4,7 +4,7 @@
 
 A tabela `produtos` armazena informações sobre os produtos cadastrados e suas quantidades disponíveis em estoque.
 
-**Importante:** apesar do nome da tabela, ela não armazena registros de produtos realizadas.
+**Importante:** a tabela armazena estoque, não registros de vendas realizadas.
 
 ## Colunas
 
@@ -106,9 +106,9 @@ FROM produtos;
 ## Restrições
 
 - A tabela contém produtos cadastrados e informações de estoque.
-- Não existem informações sobre produtos realizadas.
+- Não existem informações sobre vendas realizadas.
 - Não interpretar `quantidade` como quantidade vendida.
 - Não interpretar o valor total do estoque como faturamento.
-- Não inventar dados de produtos, receitas ou histórico de transações.
+- Não inventar vendas, receitas ou histórico de transações.
 - Utilizar exclusivamente as colunas existentes na tabela.
 - Gerar somente consultas SQL `SELECT` para consultar os dados.
