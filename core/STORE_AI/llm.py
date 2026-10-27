@@ -1,331 +1,260 @@
+
 from langchain_ollama import OllamaLLM
 
 
-# Modelo usado para gerar SQL
+# ==========================================
+# CONFIGURAÇÕES DOS MODELOS
+# ==========================================
+
+MODELO = "qwen2.5:3b"
+MODELO2 = "llama3.2:3b" 
+
+# Modelo para gerar SQL
 llm_sql = OllamaLLM(
-    model="llama3.1",
-    temperature=0
+    model=MODELO,
+    temperature=0,
+    num_predict=180,
+    keep_alive="30m"
 )
 
-# Modelo usado para gerar a resposta ao usuário
+# Modelo para gerar respostas naturais
 llm_exp = OllamaLLM(
-    model="llama3.1",
-    temperature=0.5
+    model=MODELO2,
+    temperature=0.2,
+    num_predict=300,
+    keep_alive="30m"
 )
 
+
+# ==========================================
+# GERAÇÃO DE SQL
+# ==========================================
 
 def gerar_sql(pergunta, contexto):
 
     prompt = f"""
-Você é um tradutor de linguagem natural para SQL MySQL.
+Você é um especialista em converter perguntas
+em consultas SQL para MySQL.
 
-Sua única função é transformar a pergunta do usuário em UMA consulta
-SQL SELECT válida para a tabela "vendas".
+Sua única tarefa é gerar UMA consulta SELECT
+que responda EXATAMENTE à pergunta do usuário.
 
-ESTRUTURA DA TABELA:
+ESTRUTURA DO BANCO:
 
-vendas(
-    produto VARCHAR,
-    preco DECIMAL,
-    marca VARCHAR,
-    modelo VARCHAR,
-    quantidade INT
-)
+Tabela: produtos
 
-CONTEXTO RECUPERADO PELO RAG:
+Colunas:
+- id: identificador do registro
+- produto: nome do produto
+- preco: preço do produto
+- marca: fabricante
+- modelo: modelo do produto
+- quantidade: quantidade de unidades vendidas
+
+REGRAS OBRIGATÓRIAS:
+
+1. Retorne SOMENTE a SQL, sem explicações,
+   comentários ou Markdown.
+
+2. Utilize apenas a tabela produtos.
+
+3. Gere somente consultas SELECT.
+
+4. Nunca gere INSERT, UPDATE, DELETE, DROP,
+   ALTER, CREATE, TRUNCATE ou SHOW.
+
+5. Se a pergunta não estiver relacionada aos
+   dados da tabela, retorne exatamente INVALID.
+
+6. Responda à pergunta ATUAL. Não copie SQL
+   do contexto ou de exemplos sem verificar
+   se corresponde ao pedido.
+
+7. Produto e marca são campos diferentes.
+   Mouse, Teclado e Monitor são produtos.
+   Logitech, Razer e Multilaser são marcas.
+
+8. A coluna quantidade representa unidades
+   vendidas, não estoque disponível.
+
+9. Não utilize LIMIT ou ORDER BY se o usuário
+   não solicitar classificação ou ordenação.
+
+10. Não transforme pedidos de listagem em
+    análises de maior preço ou maior quantidade.
+
+11. Utilize SUM(quantidade) para perguntar
+    quantas unidades foram vendidas.
+
+12. Utilize COUNT(*) quando a pergunta for
+    sobre a quantidade de registros.
+
+13. Utilize DISTINCT para listar valores únicos
+    de produtos ou marcas.
+
+EXEMPLOS:
+
+Pergunta: oi
+SQL: INVALID
+
+Pergunta: mostre todos os itens do banco
+SQL: SELECT * FROM produtos
+
+Pergunta: verifique o banco e retorne os itens
+SQL: SELECT * FROM produtos
+
+Pergunta: liste todos os registros
+SQL: SELECT * FROM produtos
+
+Pergunta: quais produtos existem
+SQL: SELECT DISTINCT produto FROM produtos
+
+Pergunta: quais marcas existem
+SQL: SELECT DISTINCT marca FROM produtos
+
+Pergunta: quais marcas de mouse existem
+SQL: SELECT DISTINCT marca FROM produtos
+WHERE produto = 'Mouse'
+
+Pergunta: quais produtos da Multilaser existem
+SQL: SELECT DISTINCT produto FROM produtos
+WHERE marca = 'Multilaser'
+
+Pergunta: quantos registros existem
+SQL: SELECT COUNT(*) AS total_registros FROM produtos
+
+Pergunta: quantos mouses foram vendidos
+SQL: SELECT SUM(quantidade) AS quantidade_vendida
+FROM produtos WHERE produto = 'Mouse'
+
+Pergunta: quantos produtos a Samsung vendeu
+SQL: SELECT SUM(quantidade) AS quantidade_vendida
+FROM produtos WHERE marca = 'Samsung'
+
+Pergunta: quantas unidades foram vendidas
+SQL: SELECT SUM(quantidade) AS quantidade_total
+FROM produtos
+
+Pergunta: qual produto vendeu mais
+SQL: SELECT produto,
+SUM(quantidade) AS quantidade_vendida
+FROM produtos GROUP BY produto
+ORDER BY quantidade_vendida DESC LIMIT 1
+
+Pergunta: qual marca vendeu mais
+SQL: SELECT marca,
+SUM(quantidade) AS quantidade_vendida
+FROM produtos GROUP BY marca
+ORDER BY quantidade_vendida DESC LIMIT 1
+
+Pergunta: qual produto da Multilaser vendeu mais
+SQL: SELECT produto,
+SUM(quantidade) AS quantidade_vendida
+FROM produtos WHERE marca = 'Multilaser'
+GROUP BY produto
+ORDER BY quantidade_vendida DESC LIMIT 1
+
+Pergunta: qual o mouse mais vendido da Multilaser
+SQL: SELECT modelo,
+SUM(quantidade) AS quantidade_vendida
+FROM produtos
+WHERE produto = 'Mouse' AND marca = 'Multilaser'
+GROUP BY modelo
+ORDER BY quantidade_vendida DESC LIMIT 1
+
+Pergunta: qual o preço do mouse
+SQL: SELECT produto, preco FROM produtos
+WHERE produto = 'Mouse'
+
+Pergunta: qual o produto mais caro
+SQL: SELECT produto, preco FROM produtos
+ORDER BY preco DESC LIMIT 1
+
+CONTEXTO AUXILIAR DO RAG:
 {contexto}
 
-==================================================
-REGRAS GERAIS
-==================================================
-
-1. Retorne SOMENTE a consulta SQL.
-
-2. Não use:
-- markdown
-- ```sql
-- explicações
-- comentários
-- texto antes ou depois da SQL
-
-3. A consulta deve conter SOMENTE SELECT.
-
-4. Nunca use:
-- INSERT
-- UPDATE
-- DELETE
-- DROP
-- ALTER
-- CREATE
-- TRUNCATE
-- DESCRIBE
-- SHOW
-
-5. Se a pergunta for apenas uma saudação, conversa fiada ou não tiver
-relação com os dados da tabela, retorne exatamente:
-
-INVALID
-
-6. "mouse", "teclado", "monitor", etc. são valores da coluna produto.
-
-7. Nomes como "Multilaser", "Logitech", "Redragon", "Razer" e
-"Corsair" são valores da coluna marca.
-
-8. Nunca confunda produto com marca.
-
-==================================================
-REGRAS PARA QUANTIDADE
-==================================================
-
-Quando o usuário perguntar QUANTOS itens de um produto foram vendidos,
-some a coluna quantidade.
-
-Exemplo:
-
-Pergunta:
-quantos mouses
-
-SQL correta:
-SELECT SUM(quantidade) AS quantidade_vendida FROM vendas WHERE produto = 'Mouse'
-
-Pergunta:
-quantos mouses foram vendidos
-
-SQL correta:
-SELECT SUM(quantidade) AS quantidade_vendida FROM vendas WHERE produto = 'Mouse'
-
-Pergunta:
-quantidade de mouses
-
-SQL correta:
-SELECT SUM(quantidade) AS quantidade_vendida FROM vendas WHERE produto = 'Mouse'
-
-IMPORTANTE:
-Não retorne o nome do produto junto nessa situação.
-O objetivo é retornar a quantidade total.
-
-==================================================
-REGRAS PARA LISTAR MARCAS
-==================================================
-
-Quando o usuário perguntar QUAIS MARCAS possuem determinado produto,
-retorne as marcas distintas.
-
-Exemplo:
-
-Pergunta:
-quais marcas de mouse
-
-SQL correta:
-SELECT DISTINCT marca FROM vendas WHERE produto = 'Mouse'
-
-Pergunta:
-quais são as marcas de mouse
-
-SQL correta:
-SELECT DISTINCT marca FROM vendas WHERE produto = 'Mouse'
-
-==================================================
-REGRAS PARA LISTAR PRODUTOS
-==================================================
-
-Quando o usuário perguntar quais produtos existem de determinada marca,
-retorne os produtos distintos.
-
-Exemplo:
-
-Pergunta:
-quais produtos da Multilaser
-
-SQL correta:
-SELECT DISTINCT produto FROM vendas WHERE marca = 'Multilaser'
-
-==================================================
-REGRAS PARA PRODUTO MAIS VENDIDO
-==================================================
-
-Quando o usuário perguntar:
-
-- qual produto vendeu mais
-- qual foi o produto mais vendido
-- qual produto teve maior quantidade vendida
-
-use:
-
-SELECT produto, SUM(quantidade) AS quantidade_vendida
-FROM vendas
-GROUP BY produto
-ORDER BY quantidade_vendida DESC
-LIMIT 1
-
-==================================================
-REGRAS PARA MARCA QUE MAIS VENDE
-==================================================
-
-Quando o usuário perguntar:
-
-- qual marca vende mais
-- qual marca vendeu mais
-- qual foi a marca mais vendida
-- qual marca teve maior quantidade vendida
-
-use:
-
-SELECT marca, SUM(quantidade) AS quantidade_vendida
-FROM vendas
-GROUP BY marca
-ORDER BY quantidade_vendida DESC
-LIMIT 1
-
-==================================================
-REGRAS PARA PRODUTO MAIS VENDIDO DE UMA MARCA
-==================================================
-
-Quando o usuário perguntar qual produto vendeu mais dentro de uma marca,
-filtre pela marca e agrupe por produto.
-
-Exemplo:
-
-Pergunta:
-qual o mouse mais vendido da Multilaser
-
-SQL correta:
-SELECT produto, SUM(quantidade) AS quantidade_vendida
-FROM vendas
-WHERE produto = 'Mouse' AND marca = 'Multilaser'
-GROUP BY produto
-ORDER BY quantidade_vendida DESC
-LIMIT 1
-
-Outro exemplo:
-
-Pergunta:
-qual produto da Multilaser vendeu mais
-
-SQL correta:
-SELECT produto, SUM(quantidade) AS quantidade_vendida
-FROM vendas
-WHERE marca = 'Multilaser'
-GROUP BY produto
-ORDER BY quantidade_vendida DESC
-LIMIT 1
-
-==================================================
-REGRAS PARA QUANTIDADE POR MARCA
-==================================================
-
-Quando o usuário perguntar quantos itens uma determinada marca vendeu,
-some quantidade filtrando pela marca.
-
-Exemplo:
-
-Pergunta:
-quantos produtos a Samsung vendeu
-
-SQL correta:
-SELECT SUM(quantidade) AS quantidade_vendida FROM vendas WHERE marca = 'Samsung'
-
-==================================================
-REGRAS PARA PREÇO
-==================================================
-
-Se o usuário perguntar pelo preço de um produto, utilize a coluna preco.
-
-Exemplo:
-
-Pergunta:
-qual o preço do mouse
-
-SQL:
-SELECT produto, preco FROM vendas WHERE produto = 'Mouse'
-
-==================================================
-REGRAS PARA LISTAGEM
-==================================================
-
-Quando o usuário quiser apenas listar informações, utilize SELECT.
-
-Exemplo:
-
-Pergunta:
-quais produtos existem
-
-SQL:
-SELECT DISTINCT produto FROM vendas
-
-Pergunta:
-quais marcas existem
-
-SQL:
-SELECT DISTINCT marca FROM vendas
-
-==================================================
-REGRAS PARA TOTAL DE VENDAS
-==================================================
-
-Quando o usuário perguntar o total de itens vendidos:
-
-SELECT SUM(quantidade) AS quantidade_total FROM vendas
-
-==================================================
-
-PERGUNTA DO USUÁRIO:
+ATENÇÃO:
+O contexto serve apenas como referência.
+A pergunta do usuário tem prioridade.
+Nunca invente colunas ou tabelas.
+
+PERGUNTA ATUAL:
 {pergunta}
 
-RETORNE SOMENTE A SQL:
+SQL:
 """
 
-    resposta = llm_sql.invoke(prompt)
+    resposta = llm_sql.invoke(prompt).strip()
 
-    return (
+    # Remove possíveis blocos Markdown
+    resposta = (
         resposta
         .replace("```sql", "")
+        .replace("```SQL", "")
         .replace("```", "")
         .strip()
     )
 
+    # Remove prefixo ocasional
+    if resposta.upper().startswith("SQL:"):
+        resposta = resposta[4:].strip()
 
-def explicar(dados):
+    # Normaliza resposta inválida
+    if resposta.upper() == "INVALID":
+        return "INVALID"
+
+    return resposta
+
+
+# ==========================================
+# EXPLICAÇÃO DOS RESULTADOS
+# ==========================================
+
+def explicar(pergunta, dados):
 
     prompt = f"""
-Você é um assistente de análise de dados.
+Você é o DB Reader, um assistente de análise
+de dados conectado a um banco MySQL.
 
-Responda de forma natural, direta e curta, usando SOMENTE os dados
-retornados pelo banco.
+Responda à pergunta usando EXCLUSIVAMENTE
+os dados retornados pelo banco.
 
 REGRAS:
 
-- Responda em português.
-- No máximo 2 frases.
-- Não repita a pergunta.
-- Não invente informações.
-- Não diga "Com base nos dados fornecidos".
-- Não diga "Os dados mostram".
-- Não diga "Podemos observar".
-- Não faça introduções desnecessárias.
-- Dê destaque ao principal resultado.
-- Se houver um único resultado, responda diretamente.
-- Se houver uma lista, apresente os principais resultados de forma natural.
+1. Responda em português brasileiro.
 
-Exemplos:
+2. Responda exatamente ao que foi solicitado.
 
-Dados:
-[{{'quantidade_vendida': 500}}]
+3. Não invente informações.
 
-Resposta:
-Foram vendidos 500 mouses.
+4. Não utilize dados de perguntas anteriores.
 
-Dados:
-[{{'marca': 'Logitech'}}, {{'marca': 'Redragon'}}, {{'marca': 'Razer'}}]
+5. Não repita a pergunta.
 
-Resposta:
-As marcas de mouse disponíveis são Logitech, Redragon e Razer.
+6. Não faça introduções desnecessárias.
 
-Dados:
-[{{'produto': 'Mouse', 'quantidade_vendida': 500}}]
+7. Não diga "Com base nos dados fornecidos",
+   "Os dados mostram" ou "Podemos observar".
 
-Resposta:
-O produto que vendeu mais foi o Mouse, com 500 unidades vendidas.
+8. Se o usuário pedir uma listagem, apresente
+   todos os registros recebidos, um por linha.
+
+9. Não resuma nem omita registros em listagens.
+
+10. Não destaque maior preço ou maior quantidade
+    quando isso não tiver sido solicitado.
+
+11. Para resultados únicos, responda
+    objetivamente em até duas frases.
+
+12. Não confunda unidades vendidas com
+    estoque disponível.
+
+13. Se não houver dados suficientes, informe
+    que não foi possível responder.
+
+PERGUNTA DO USUÁRIO:
+{pergunta}
 
 DADOS RETORNADOS PELO BANCO:
 {dados}

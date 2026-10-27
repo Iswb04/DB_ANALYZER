@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import os
 from itertools import count
 from datetime import datetime
+from pathlib import Path
 
 def gerar_grafico(colunas, dados):
     df = pd.DataFrame(dados, columns=colunas)
@@ -14,8 +15,7 @@ def gerar_grafico(colunas, dados):
         print("Dados insuficientes para gráfico! Contém menos de duas colunas.")
         return
 
-    pasta = "core/DOWNLOADS"
-    os.makedirs(pasta, exist_ok=True)
+    pasta = Path.home() / "Downloads"
 
     timestamp = datetime.now().strftime("%Y%m%d")
 

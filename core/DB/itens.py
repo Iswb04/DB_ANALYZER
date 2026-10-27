@@ -5,7 +5,7 @@ def inserir_item(produto, preco, marca, modelo, quantidade):
     cursor = con.cursor()
 
     cursor.execute("""
-    INSERT INTO vendas (produto, preco, marca, modelo, quantidade)
+    INSERT INTO produtos (produto, preco, marca, modelo, quantidade)
     VALUES (%s, %s, %s, %s, %s)
     """, (produto, preco, marca, modelo, quantidade))
 

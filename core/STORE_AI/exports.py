@@ -2,6 +2,7 @@ import os
 import csv
 from itertools import count
 from datetime import datetime
+from pathlib import Path
 
 
 def salvar_csv(colunas, dados):
@@ -9,8 +10,7 @@ def salvar_csv(colunas, dados):
     if not colunas or not dados:
         print("Dados insuficientes para exportar CSV.")
 
-    pasta = "core/DOWNLOADS"
-    os.makedirs(pasta, exist_ok=True)
+    pasta = Path.home() / "Downloads"
 
     timestamp = datetime.now().strftime("%Y%m%d")
 

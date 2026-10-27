@@ -1,9 +1,20 @@
 python -m core.main
 python -m core.DB.connect  (verificar no mysql)
 pip install langchain-ollama
-ollama run llama3:8b (mais leve que o ollama 3)
+
+ollama pull llama3.2:3b (RESPOSTAS) || ollama pull qwen2.5:3b (SQL)
+ollama run llama3.2:3b || ollama run qwen2.5:3b
+
 ollama list 
 python -m core.main
+
+BANCO !!
+1 - criar banco : python -m core.DB.create
+2 - inserir produtos : python -m core.DB.insert
+
+python -c "from core.DB.create import conectar; c=conectar('store'); cur=c.cursor(); cur.execute('SELECT COUNT(*) FROM produtos'); print('Produtos cadastrados:', cur.fetchone()[0]); cur.close(); c.close()"
+
+
 
 core/
 │
