@@ -17,13 +17,6 @@ Configure o .env a partir do .env.example antes de executar.
 2 - python -m core.DB.insert
 
 
-**Abrir SQL pelo terminal** !!!!!
-1 - mysql -u root -p
-2 - 
-USE store;
-SELECT * FROM produtos;
-
-
 **Funcionamento do RAG Vetorial** !!!!!
 
 1. **Documentos:** Os arquivos `schema.md`, `regras_negocio.md` e `exemplos_consultas.md` contêm informações sobre o banco de dados.
