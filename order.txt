@@ -1,0 +1,47 @@
+python -m TCC.main
+python -m TCC.DB.connect  (verificar no mysql)
+pip install langchain-ollama
+ollama run llama3:8b (mais leve que o ollama 3)
+ollama list 
+pip install seaborn matplotlib
+pip install pandas
+python -m TCC.main
+
+TCC/
+│
+├── DB/
+│   ├── create.py # Criar DB
+│   └── itens.py  # Criar tabela "itens"
+│
+├── IA/
+│   └── llm.py	# IA (Ollama)
+|   ├── charts. # Gráficos
+|   └── exports.py # Salvar dados 
+│
+├── pipeline.py  #Fluxo de etapas
+└── main.py             
+
+__________________________________________________________________________________________
+
+IA → gera SQL
+      ↓
+Python (cursor.execute)
+      ↓
+Banco de Dados (MySQL)
+      ↓
+Retorna dados
+
+* Pergunta em português → IA → SQL → Banco → Dados → IA → Resposta
+* Você pergunta, IA traduz para SQL, código executa [cursor.execute(sql)], o banco retorna os dados e a IA explica o resultado
+
+__________________________________________________________________________________________
+
+-- não funciona outras querys sem ser select, pois:
+
+* colunas = [desc[0] for desc in cursor.description]  : se for None dá erro!
+&
+*     sql_lower = sql.lower().strip()
+    if not sql_lower.startswith("select"):
+        return "Apenas consultas SELECT são permitidas."
+
+

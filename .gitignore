@@ -1,0 +1,12 @@
+# Ambiente virtual
+venv/
+
+# Variáveis de ambiente
+.env
+
+# Arquivos temporários do Python
+__pycache__/
+*.pyc
+
+# Banco de dados local do Chroma
+chroma_db/

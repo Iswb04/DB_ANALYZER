@@ -1,0 +1,9 @@
+customtkinter
+mysql-connector-python
+pandas
+seaborn
+matplotlib
+langchain-ollama
+langchain-community
+chromadb
+python-dotenv
