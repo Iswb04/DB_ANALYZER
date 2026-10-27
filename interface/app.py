@@ -9,10 +9,10 @@ import os
 import re
 import ctypes
 
-# Ajustar o path para poder importar o TCC
+# Ajustar o path para poder importar o core
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from TCC.pipeline import rodar_pipeline
+from core.pipeline import rodar_pipeline
 
 
 class GUI_Terminal(cctk.CTk):

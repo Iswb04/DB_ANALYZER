@@ -90,7 +90,7 @@ DB_READER/
 ├── interface/
 │   └── app.py
 │
-├── TCC/
+├── core/
 │   ├── DB/
 │   │   ├── connect.py
 │   │   ├── create.py
@@ -107,7 +107,7 @@ DB_READER/
 │   └── main.py
 │
 ├── chroma_db/
-├── TCC.sql
+├── core.sql
 ├── requirements.txt
 ├── README.md
 ├── .gitignore

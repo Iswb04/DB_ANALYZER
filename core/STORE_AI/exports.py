@@ -9,7 +9,7 @@ def salvar_csv(colunas, dados):
     if not colunas or not dados:
         print("Dados insuficientes para exportar CSV.")
 
-    pasta = "TCC/DOWNLOADS"
+    pasta = "core/DOWNLOADS"
     os.makedirs(pasta, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d")

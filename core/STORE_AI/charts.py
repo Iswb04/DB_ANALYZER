@@ -14,7 +14,7 @@ def gerar_grafico(colunas, dados):
         print("Dados insuficientes para gráfico! Contém menos de duas colunas.")
         return
 
-    pasta = "TCC/DOWNLOADS"
+    pasta = "core/DOWNLOADS"
     os.makedirs(pasta, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d")

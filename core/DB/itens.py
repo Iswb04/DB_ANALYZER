@@ -1,4 +1,4 @@
-from TCC.DB.create import conectar
+from core.DB.create import conectar
 
 def inserir_item(produto, preco, marca, modelo, quantidade):
     con = conectar("store")

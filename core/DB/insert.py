@@ -1,5 +1,5 @@
-from TCC.DB.create import criar_banco
-from TCC.DB.itens import inserir_item
+from core.DB.create import criar_banco
+from core.DB.itens import inserir_item
 
 criar_banco()
 

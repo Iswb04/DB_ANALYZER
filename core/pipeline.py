@@ -1,8 +1,8 @@
-from TCC.STORE_AI.llm import gerar_sql
-from TCC.STORE_AI.rag import buscar_contexto
-from TCC.DB.create import conectar
-from TCC.STORE_AI.charts import gerar_grafico
-from TCC.STORE_AI.exports import salvar_csv
+from core.STORE_AI.llm import gerar_sql
+from core.STORE_AI.rag import buscar_contexto
+from core.DB.create import conectar
+from core.STORE_AI.charts import gerar_grafico
+from core.STORE_AI.exports import salvar_csv
 
 
 def rodar_pipeline(pergunta):
@@ -86,7 +86,7 @@ def rodar_pipeline(pergunta):
     ]
 
     # 9. Gera resposta natural
-    from TCC.STORE_AI.llm import llm_exp
+    from core.STORE_AI.llm import llm_exp
 
     prompt = f"""
 Você é um assistente de análise de dados.

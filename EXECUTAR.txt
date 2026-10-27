@@ -1,13 +1,11 @@
-python -m TCC.main
-python -m TCC.DB.connect  (verificar no mysql)
+python -m core.main
+python -m core.DB.connect  (verificar no mysql)
 pip install langchain-ollama
 ollama run llama3:8b (mais leve que o ollama 3)
 ollama list 
-pip install seaborn matplotlib
-pip install pandas
-python -m TCC.main
+python -m core.main
 
-TCC/
+core/
 │
 ├── DB/
 │   ├── create.py # Criar DB
@@ -45,3 +43,29 @@ ________________________________________________________________________________
         return "Apenas consultas SELECT são permitidas."
 
 
+
+__________________________________________________________________________________________
+
+ollama pull nomic-embed-text - >RAG< (Retrieval-Augmented Generation)
+
+modelo de Inteligência Artificial utilizado para transformar 
+textos em números (vetores), permitindo que o sistema encontre 
+informações com base no significado das palavras, e não apenas em 
+palavras idênticas. 
+
+-> pergunta ("qual vendeu mais?") 
+-> transforma em vetor ([0.21, -0.48, 0.73, ...])
+-> busca semântica (encontra descrições relevantes)
+-> contexto (LLM+SQL para gerar consulta)
+
+!!!!!!!!!!
+nomic-embed-text: transforma texto em vetor.
+ChromaDB: Busca descrições semelhantes
+LLM: Interpreta a pergunta e gera a resposta.
+
+
+__________________________________________________________________________________________
+
+IA Generativa com NL2SQL e RAG:
+CRIAR ARQUIVO COM BIBLIOTECAS: python -m pip freeze > requirements.txt
+INSTALAR AS BIBLIOTECAS: python -m pip install -r requirements.txt
