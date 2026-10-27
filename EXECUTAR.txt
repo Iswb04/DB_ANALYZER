@@ -8,6 +8,7 @@ ollama pull nomic-embed-text
 python -m core.DB.create
 python -m core.DB.insert
 python -m interface.app
+opcional: ollama ps (em outro terminal)
 
 Configure o .env a partir do .env.example antes de executar.
 

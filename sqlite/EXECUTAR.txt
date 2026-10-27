@@ -1,0 +1,29 @@
+
+
+**Ordem de execução** !!!!!
+python -m pip install -r requirements.txt
+ollama pull qwen2.5:3b
+ollama pull llama3.2:3b
+ollama pull nomic-embed-text
+python -m core.DB.create
+python -m core.DB.insert
+python -m interface.app
+opcional: ollama ps (em outro terminal)
+
+Configure DB_PATH no .env caso queira alterar o caminho do arquivo SQLite.
+
+
+**Rodar banco NA PASTA RAIZ** !!!!!
+1- python -m core.DB.create
+2 - python -m core.DB.insert
+
+
+**Funcionamento do RAG Vetorial** !!!!!
+
+1. **Documentos:** Os arquivos `schema.md`, `regras_negocio.md` e `exemplos_consultas.md` contêm informações sobre o banco de dados.
+2. **Embeddings:** O `nomic-embed-text` transforma esses textos em vetores numéricos.
+3. **ChromaDB:** Armazena os vetores para facilitar a busca por informações semelhantes.
+4. **Pergunta:** A pergunta do usuário também é transformada em vetor para encontrar informações relevantes.
+5. **LLM:** Recebe as informações encontradas pelo RAG e gera a consulta SQL.
+6. **SQLite:** Executa o SQL e retorna os dados solicitados.
+7. **Sqlglot:** Analisa e valida as consultas SQL geradas pela IA, permitindo apenas operações de leitura (SELECT) e bloqueando comandos que possam modificar ou excluir dados.
