@@ -43,3 +43,8 @@ Configure o .env a partir do .env.example antes de executar.
 5 - Plotly: geração de gráficos interativos.
 6 - SQLGlot: análise e validação de consultas SQL.
 7 - CustomTkinter: interface gráfica.
+
+
+**-.venv:** !!!!!
+
+

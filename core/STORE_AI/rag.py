@@ -26,8 +26,7 @@ def criar_rag():
     if not arquivos:
         raise RuntimeError("Nenhum documento encontrado na pasta knowledge.")
 
-    # O nome da coleção muda quando qualquer documento é editado.
-    # Assim, nunca reutilizamos embeddings gerados a partir de regras antigas.
+
     digest = hashlib.sha256()
     for arquivo in arquivos:
         digest.update(arquivo.name.encode("utf-8"))

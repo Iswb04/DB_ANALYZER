@@ -1,8 +1,5 @@
-"""Fluxo de consultas: estoque, SQL somente leitura, resposta e exportação."""
-import logging
 import re
 import unicodedata
-from pathlib import Path
 
 import sqlglot
 from sqlglot import exp
@@ -11,14 +8,6 @@ from core.STORE_AI.llm import gerar_sql, explicar
 from core.STORE_AI.rag import buscar_contexto
 from core.STORE_AI.charts import gerar_grafico
 from core.STORE_AI.exports import salvar_csv
-
-LOG = logging.getLogger("db_reader")
-LOG.setLevel(logging.ERROR)
-LOG.propagate = False
-if not LOG.handlers:
-    handler = logging.FileHandler(Path(__file__).resolve().parents[1] / "erro_pipeline.log", encoding="utf-8")
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
-    LOG.addHandler(handler)
 
 COLUNAS = "id, produto, preco, marca, modelo, quantidade"
 
@@ -43,7 +32,7 @@ def pergunta_sobre_vendas(pergunta):
 
 
 def validar_sql(sql):
-    """Aceita SELECT simples apenas em produtos; evita GROUP BY inválido."""
+
     try:
         statements = sqlglot.parse(sql, read="mysql")
         if len(statements) != 1 or not isinstance(statements[0], exp.Select):
@@ -59,7 +48,7 @@ def validar_sql(sql):
         for no in consulta.walk():
             if isinstance(no, exp.Anonymous) and no.name.upper() in {"LOAD_FILE", "SLEEP", "BENCHMARK", "GET_LOCK", "RELEASE_LOCK"}:
                 return False
-        # Não executar consultas com GROUP BY potencialmente inválido sob ONLY_FULL_GROUP_BY.
+
         grupo = consulta.args.get("group")
         if grupo:
             chaves = {g.sql(dialect="mysql").lower() for g in grupo.expressions}
@@ -68,14 +57,14 @@ def validar_sql(sql):
                 if isinstance(expr, exp.Star):
                     return False
                 if any(isinstance(n, exp.AggFunc) for n in expr.walk()):
-                    # expressão agregada pode conter colunas internas
+
                     continue
                 if isinstance(expr, exp.Literal):
                     continue
                 if expr.sql(dialect="mysql").lower() not in chaves:
                     return False
         elif any(isinstance(n, exp.AggFunc) for n in consulta.expressions for n in n.walk()):
-            # Evita SELECT id, SUM(quantidade) sem GROUP BY.
+
             for proj in consulta.expressions:
                 expr = proj.this if isinstance(proj, exp.Alias) else proj
                 if isinstance(expr, exp.Column) or isinstance(expr, exp.Star):
@@ -87,7 +76,7 @@ def validar_sql(sql):
 
 def sql_frequente(pergunta):
     texto = normalizar(pergunta)
-    # Perguntas sobre unidades de estoque não são contagem de registros.
+
     if re.search(r"\b(quantas|quantos|total|soma)\b", texto) and re.search(r"\b(unidades|estoque|quantidade)\b", texto) and not re.search(r"\b(maior|menor|marca|modelo|mouse|notebook|teclado|monitor)\b", texto):
         return "SELECT COALESCE(SUM(quantidade), 0) AS unidades_em_estoque FROM produtos"
     if re.search(r"\b(quantos|quantas|numero de|total de)\b", texto) and re.search(r"\b(itens|produtos|registros|modelos)\b", texto) and not re.search(r"\b(unidades|estoque|marca|modelo|mouse|notebook|teclado|monitor)\b", texto):
@@ -109,7 +98,7 @@ def formatar_listagem(registros):
 
 
 def rodar_pipeline(pergunta, cancelado=None):
-    """cancelado: threading.Event opcional para cancelamento cooperativo."""
+
     def interrompido():
         return cancelado is not None and cancelado.is_set()
 
@@ -127,7 +116,6 @@ def rodar_pipeline(pergunta, cancelado=None):
     try:
         sql = sql_direto or gerar_sql(pergunta, buscar_contexto(pergunta)).strip()
     except Exception:
-        LOG.exception("Falha ao gerar SQL ou recuperar RAG")
         if not interrompido():
             print("\nNão foi possível interpretar a pergunta. Verifique se o Ollama está em execução.")
         return
@@ -137,7 +125,6 @@ def rodar_pipeline(pergunta, cancelado=None):
         print("\nNão foi possível relacionar a pergunta aos dados de produtos e estoque.")
         return
     if not validar_sql(sql):
-        LOG.error("SQL rejeitado: %s", sql)
         print("\nA consulta gerada não é válida. Tente descrever a pergunta de outra forma.")
         return
 
@@ -149,9 +136,8 @@ def rodar_pipeline(pergunta, cancelado=None):
         colunas = [d[0] for d in cursor.description] if cursor.description else []
         dados = cursor.fetchall() if colunas else []
     except Exception:
-        LOG.exception("Falha ao executar consulta SQL: %s", sql)
         if not interrompido():
-            print("\nNão foi possível consultar o banco. Confira a conexão e o arquivo erro_pipeline.log.")
+            print("\nNão foi possível consultar o banco. Confira a conexão com o MySQL e a configuração do arquivo .env.")
         return
     finally:
         if cursor is not None:
@@ -170,7 +156,6 @@ def rodar_pipeline(pergunta, cancelado=None):
         try:
             resposta = explicar(pergunta, registros)
         except Exception:
-            LOG.exception("Falha na explicação do Ollama")
             resposta = formatar_listagem(registros)
     if interrompido():
         return
@@ -183,7 +168,6 @@ def rodar_pipeline(pergunta, cancelado=None):
     except (EOFError, KeyboardInterrupt):
         return
     except Exception:
-        LOG.exception("Falha ao gerar gráfico")
         print("\nNão foi possível gerar o gráfico.")
     if interrompido():
         return
@@ -193,5 +177,4 @@ def rodar_pipeline(pergunta, cancelado=None):
     except (EOFError, KeyboardInterrupt):
         return
     except Exception:
-        LOG.exception("Falha ao exportar CSV")
         print("\nNão foi possível exportar o CSV.")

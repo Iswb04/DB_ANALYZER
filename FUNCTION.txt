@@ -1,0 +1,126 @@
+O DB_ANALYZER, apresentado na interface como DB Reader, é um programa desktop em Python para consultar um estoque de produtos no MySQL usando perguntas em português. 
+Ele combina modelos locais do Ollama com uma base de conhecimento para interpretar perguntas, gerar consultas SQL somente de leitura e apresentar respostas. 
+Também permite exportar resultados em CSV e gerar gráficos PNG. A coluna quantidade indica unidades disponíveis em estoque; o sistema não possui histórico de vendas.
+
+ESTRUTURA DO PROGRAMA
+
+DB_ANALYZER/
+|-- FUNCTION.txt
+|-- CHANGES.TXT
+|-- EXECUTAR.txt
+|-- requirements.txt
+|-- .env
+|-- .gitignore
+|-- core/
+|   |-- pipeline.py
+|   |-- DB/
+|   |   |-- __init__.py
+|   |   |-- create.py
+|   |   |-- insert.py
+|   |   |-- itens.py
+|   |-- STORE_AI/
+|       |-- __init__.py
+|       |-- llm.py
+|       |-- rag.py
+|       |-- charts.py
+|       |-- exports.py
+|-- interface/
+|   |-- app.py
+|-- knowledge/
+|   |-- schema.md
+|   |-- regras_negocio.md
+|   |-- exemplos_consultas.md
+|-- chroma_db/              
+
+
+O QUE CADA ARQUIVO FAZ !!!!!
+
+FUNCTION.txt
+Apresenta o programa, sua estrutura, os arquivos e o fluxo de execução.
+
+CHANGES.TXT
+Mantém o histórico de alterações, verificações e limitações encontradas durante o trabalho no projeto. É o antigo changes.txt, renomeado sem apagar seu conteúdo.
+
+EXECUTAR.txt
+Arquivo de orientações de execução mantido pelo usuário. Preservado sem alteração; seu conteúdo não foi revisado nesta tarefa.
+
+requirements.txt
+Lista as dependências diretas e suas versões para instalar com pip. As dependências transitivas são instaladas automaticamente. É o único requirements.txt do projeto.
+
+.env
+Guarda configurações locais de conexão com o MySQL, lidas por python-dotenv: DB_HOST, DB_USER e DB_PASSWORD. Seu conteúdo não é reproduzido neste documento.
+
+.gitignore
+Define arquivos e pastas ignorados pelo Git, como .env, ambientes virtuais, caches Python, chroma_db e logs.
+
+core/pipeline.py
+Coordena a consulta. Normaliza a pergunta, reconhece saudações, informa quando a pergunta exige informações que o estoque não contém e usa SQL predefinido em consultas frequentes. Para outras perguntas, solicita contexto ao RAG e SQL ao modelo. Valida o SQL, consulta store.produtos, apresenta os dados ou uma explicação e oferece gráfico e CSV. Verifica cancelamento entre etapas e fecha cursor e conexão. Não gera erro_pipeline.log.
+
+core/DB/create.py
+Lê a configuração do .env e oferece conectar(), usada pelos demais módulos. Quando executado como módulo, cria o banco store e a tabela produtos, caso ainda não existam. Define as colunas id, produto, preco, marca, modelo e quantidade.
+
+core/DB/insert.py
+Contém o catálogo inicial e insere seus produtos somente quando a tabela está vazia, evitando repetir a carga inicial. Pode ser executado como módulo para preparar os dados de exemplo.
+
+core/DB/itens.py
+Oferece inserir_item() para cadastrar um produto com parâmetros SQL, confirmação da operação e rollback em caso de falha. É uma função auxiliar; não é chamada pelo fluxo principal atual da interface.
+
+core/DB/__init__.py
+Identifica DB como pacote Python. Atualmente está vazio.
+
+core/STORE_AI/llm.py
+Configura dois modelos do Ollama: qwen2.5:3b para gerar SQL e llama3.2:3b para explicar os resultados. Define os prompts, as restrições de consulta e a interpretação de quantidade como estoque. Remove marcações de formatação da resposta SQL.
+
+core/STORE_AI/rag.py
+Lê os arquivos Markdown de knowledge, divide os textos em trechos e usa nomic-embed-text para gerar representações numéricas (embeddings). Persiste o índice no ChromaDB e recupera os trechos relevantes para cada pergunta. O nome da coleção depende do hash dos documentos; documentos alterados originam uma nova coleção, evitando reutilizar o índice anterior para esses textos. Também pode ser executado como módulo para testar uma busca de contexto.
+
+core/STORE_AI/charts.py
+Prepara os resultados em tabelas pandas, converte valores Decimal e escolhe a visualização conforme as colunas: indicador, histograma, lista, barras, barras agrupadas, dispersão ou tabela. Usa Plotly e Kaleido para salvar PNG em Downloads e tenta abrir a imagem no Windows. A exportação requer Chrome/Chromium disponível.
+
+core/STORE_AI/exports.py
+Exporta os resultados para CSV em Downloads, com separador ponto e vírgula e codificação UTF-8 com BOM. Gera nomes com data/hora e sufixos para evitar sobrescrever um arquivo existente.
+
+core/STORE_AI/__init__.py
+Identifica STORE_AI como pacote Python. Atualmente está vazio.
+
+interface/app.py
+É a entrada da aplicação desktop, construída com CustomTkinter/Tkinter. Exibe a conversa, recebe perguntas e oferece Buscar e Cancelar. Executa o pipeline em uma thread, usa filas para entrada e saída, redireciona print/input para a interface e apresenta a animação de processamento. O comando clear limpa a conversa. O cancelamento é cooperativo: uma chamada em andamento pode precisar terminar antes de parar.
+
+knowledge/schema.md
+Descreve a tabela produtos, suas colunas e os significados dos dados. Fornece exemplos de consultas e deixa explícito que quantidade representa unidades em estoque.
+
+knowledge/regras_negocio.md
+Define regras de interpretação: maior estoque, soma de unidades, filtros, preço e valor do estoque. Delimita as informações que podem ser respondidas com os dados disponíveis.
+
+knowledge/exemplos_consultas.md
+Reúne perguntas e consultas SQL de exemplo para orientar a geração de consultas de estoque pelo modelo.
+
+ARQUIVOS GERADOS E SUPORTE
+
+chroma_db/
+Contém o banco e os arquivos internos do índice ChromaDB, gerenciados pela biblioteca. Não é o banco MySQL de produtos. Seu conteúdo pode mudar conforme os documentos e consultas RAG.
+
+__pycache__/ e arquivos .pyc
+São caches gerados automaticamente pelo Python para carregar módulos. Não são o código-fonte.
+
+.git/
+Contém metadados e histórico do Git. Não faz parte da execução da aplicação.
+
+FLUXO PRINCIPAL
+
+1. O usuário abre interface/app.py como módulo e envia uma pergunta.
+2. O pipeline normaliza a entrada e verifica se ela pode ser respondida pelo estoque.
+3. Consultas frequentes usam SQL predefinido. Nas demais, rag.py recupera contexto e llm.py gera SQL.
+4. O pipeline valida o SQL e consulta a tabela produtos por uma conexão de create.py.
+5. O resultado é apresentado diretamente ou explicado pelo modelo.
+6. O usuário pode solicitar um gráfico PNG e/ou um arquivo CSV.
+7. O botão Cancelar sinaliza ao pipeline para interromper entre etapas.
+
+COMO EXECUTAR SEM AMBIENTE VIRTUAL
+
+Na raiz do projeto, com Python 3.12 instalado:
+py -3.12 -m pip install -r requirements.txt
+py -3.12 -m interface.app
+
+O MySQL e o Ollama devem estar em execução e o .env deve apontar para o banco correto. Os modelos qwen2.5:3b, llama3.2:3b e nomic-embed-text precisam estar disponíveis no Ollama. 
+Para preparar um banco novo, executar primeiro core.DB.create e, se desejar a carga inicial, core.DB.insert.

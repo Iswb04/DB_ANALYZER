@@ -1,4 +1,3 @@
-
 import os
 import mysql.connector
 from dotenv import load_dotenv
@@ -7,7 +6,7 @@ load_dotenv()
 
 
 def conectar(banco=None):
-    """Estabelece conexão com o MySQL."""
+
 
     config = {
         "host": os.getenv("DB_HOST", "localhost"),
@@ -22,7 +21,7 @@ def conectar(banco=None):
 
 
 def criar_banco():
-    """Cria o banco e a tabela caso não existam."""
+
 
     con = None
     cursor = None

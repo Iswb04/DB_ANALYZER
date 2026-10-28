@@ -1,0 +1,55 @@
+REGISTRO DE ALTERAÇÕES — DB_ANALYZER
+28/10/2026
+
+LIMPEZA MAIS RECENTE
+- requirements.txt: mantidas 11 dependências diretas nas versões existentes; o pip resolve as transitivas.
+- interface/requirements.txt: centralizada a instalação usando -r ../requirements.txt.
+- interface/app.py: removida awaiting_response (sem leitura), unificados imports Event/Thread e removido nome de exceção sem uso.
+- interface/app.py e core/STORE_AI/charts.py: reduzidas linhas em branco, quebras desnecessárias e comentários decorativos; mantida a estrutura das operações e condições.
+- charts.py: removido nome de exceção sem uso.
+- .gitignore: removida regra de log redundante e normalizadas quebras de linha.
+- Redução dos cinco arquivos alterados: 22.435 bytes. Não inclui este novo histórico nem o ambiente virtual.
+- EXECUTAR.txt intacto, confirmado pelo SHA-256. Dados e .env preservados pela limpeza.
+- Backup anterior à limpeza:
+  C:\Users\isabella.rocha\Documents\Codex\2026-10-28\c-users-isabella-rocha-documents-github-3\outputs\backup_antes_limpeza_20261028_172109.zip
+
+VALIDAÇÃO MAIS RECENTE
+- pip check: sem conflitos.
+- Sintaxe Python: aprovada.
+- MySQL: conexão e consulta somente leitura aprovadas; 41 produtos.
+- Pipeline: consulta direta e cancelamento aprovados.
+- CSV e PNG: exportações reais aprovadas em pasta temporária.
+- Interface: lógica de buscar, limpar e cancelar aprovada com objetos simulados.
+- Janela real: validação pendente por TclError ao carregar init.tcl, problema já observado anteriormente.
+- RAG/Ollama: contexto recuperado, mas geração de SQL retornou INVALID; validação integrada não aprovada. Resultado já variou em testes anteriores. Prompts e módulos de IA não foram alterados na limpeza.
+- git diff --check: sem erros; avisos de futura conversão LF para CRLF.
+
+HISTÓRICO DESTA SOLICITAÇÃO
+- Solicitado acesso de escrita para criar o registro.
+- Confirmado que changes.txt ainda não existia.
+- Primeira tentativa de criação falhou por escape de caminho no script Python, sem criar o arquivo; corrigido usando texto literal do PowerShell.
+- Criado changes.txt na raiz com resumo das alterações e resultados acima.
+- Novas alterações e verificações neste projeto deverão ser acrescentadas neste arquivo.
+
+28/10/2026 — INSTALACAO SEM VENV
+- Conferidos os imports do projeto; requirements.txt atualizado com as 11 dependencias diretas necessarias, preservando versoes. Nao foi solicitada atualizacao de versoes.
+- README.md atualizado para instalar e executar com py -3.12, sem ambiente virtual; corrigida referencia ao .env.example inexistente e documentados Tcl/Tk e Chrome.
+- Solicitada pelo usuario a remocao de .venv e interface/requirements.txt; remocao e verificacao serao registradas a seguir.
+- Remocao de .venv e interface/requirements.txt bloqueada pela aprovacao automatica do ambiente (sandbox_approval desabilitada); arquivos permanecem no projeto. Nao houve tentativa de contornar o bloqueio.
+- 28/10/2026: nova solicitacao para remover .venv e requirements duplicado. Conferido requirements.txt da raiz (11 dependencias). Nova tentativa de exclusao recusada pela aprovacao automatica: sandbox_approval desabilitada. Nenhuma exclusao executada.
+- 28/10/2026: conferidos os imports, removido interface/requirements.txt e atualizado o requirements.txt unico da raiz com 11 dependencias diretas nas versoes ja declaradas. Confirmada ausencia de .venv. Nao foram alterados codigo, dados ou EXECUTAR.txt.
+
+28/10/2026 — ESTOQUE E REMOCAO DE LOG
+- Revisados core, interface e knowledge: referencias a vendas sao avisos e restricoes para impedir que estoque seja interpretado como vendas. Nao foram encontrados calculos ou dados de vendas nesses arquivos.
+- Mantidas as regras: quantidade representa unidades disponiveis em estoque; valor do estoque nao e faturamento. Mantida a recusa de perguntas sobre vendas.
+- core/pipeline.py: removidos FileHandler, configuracao de logging, chamadas LOG e imports sem uso. As mensagens de erro ao usuario e o tratamento de excecoes foram mantidos; removida a orientacao para consultar erro_pipeline.log.
+- EXECUTAR.txt tinha mudancas do usuario antes desta tarefa e foi preservado exatamente como encontrado; README.md e alguns __init__.py ja estavam ausentes e nao foram restaurados.
+- Excluido erro_pipeline.log. Testes locais sem servicos externos: quatro perguntas de vendas recusadas sem consultar banco; perguntas de estoque aceitas; SUM de estoque e COUNT de registros diferenciados; falha de conexao exibe orientacao sem log. Sintaxe Python validada. Nenhum log recriado.
+
+28/10/2026 — REMOCAO DE COMENTARIOS
+- Removidos 73 comentarios Python (#) e 18 docstrings de documentacao em 6 arquivos de codigo.
+- Preservados os prompts e demais strings de execucao. knowledge, EXECUTAR.txt e requirements.txt conferidos por hash e mantidos intactos. changes.txt mantido, com este registro acrescentado conforme instrucao anterior.
+- Arquivos: core\DB\create.py, core\DB\insert.py, core\pipeline.py, core\STORE_AI\charts.py, core\STORE_AI\rag.py, interface\app.py.
+- Validacao: sintaxe compilada em memoria, estrutura Python equivalente exceto docstrings, e ausencia de tokens de comentario confirmada. Nao executados servicos externos.
+- Backup: C:\Users\isabella.rocha\Documents\Codex\2026-10-28\c-users-isabella-rocha-documents-github-3\outputs\backup_comentarios_20261028_175604.zip
+- 28/10/2026: conferida a estrutura atual, criado FUNCTION.txt com apresentacao, arvore de pastas, funcao de cada arquivo, fluxo e execucao. Renomeado changes.txt para CHANGES.TXT, preservando historico. EXECUTAR.txt conferido por hash e mantido intacto. Nenhum codigo alterado.

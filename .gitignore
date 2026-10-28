@@ -6,4 +6,3 @@ __pycache__/
 chroma_db/
 *.log
 TCC.sql
-erro_pipeline.log

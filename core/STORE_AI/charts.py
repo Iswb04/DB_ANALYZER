@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from datetime import datetime
 from decimal import Decimal
@@ -9,16 +8,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
-# Configurações
 PASTA_GRAFICOS = Path.home() / "Downloads"
 LIMITE_CATEGORIAS = 25
 TEMA = "plotly_dark"
 
-IDENTIFICADORES = {
-    "id",
-    "codigo",
-    "codigo_produto",
-}
+IDENTIFICADORES = {"id", "codigo", "codigo_produto",}
 
 PRIORIDADE_NUMERICA = [
     "estoque_total",
@@ -29,56 +23,35 @@ PRIORIDADE_NUMERICA = [
     "preco_unitario",
 ]
 
-PRIORIDADE_CATEGORICA = [
-    "produto",
-    "marca",
-    "modelo",
-]
-
+PRIORIDADE_CATEGORICA = ["produto", "marca", "modelo",]
 
 def preparar_dados(colunas, dados):
-    """Organiza os dados recebidos do MySQL."""
 
     df = pd.DataFrame(dados, columns=colunas)
-
     if df.empty:
         return df
 
-    # Converte Decimal do MySQL para número
-    for coluna in df.columns:
-        if df[coluna].map(
-            lambda valor: isinstance(valor, Decimal)
-        ).any():
-            df[coluna] = pd.to_numeric(
-                df[coluna],
-                errors="coerce"
-            )
 
+    for coluna in df.columns:
+        if df[coluna].map(lambda valor: isinstance(valor, Decimal)).any():
+            df[coluna] = pd.to_numeric(df[coluna], errors="coerce")
     return df
 
-
 def classificar_colunas(df):
-    """Separa colunas numéricas e categóricas."""
 
     numericas = []
     categorias = []
-
     for coluna in df.columns:
         nome = str(coluna).lower()
-
         if nome in IDENTIFICADORES:
             continue
-
         if pd.api.types.is_numeric_dtype(df[coluna]):
             numericas.append(coluna)
         else:
             categorias.append(coluna)
-
     return numericas, categorias
 
-
 def ordenar_prioridade(colunas, prioridades):
-    """Ordena colunas por relevância."""
 
     return sorted(
         colunas,
@@ -89,19 +62,12 @@ def ordenar_prioridade(colunas, prioridades):
         )
     )
 
-
 def nome_legivel(nome):
     return str(nome).replace("_", " ").capitalize()
 
-
 def medida_aditiva(coluna):
-    """
-    Identifica medidas que podem ser somadas.
-    Preços unitários não devem ser somados.
-    """
 
     nome = str(coluna).lower()
-
     return nome in {
         "quantidade",
         "estoque_total",
@@ -111,12 +77,9 @@ def medida_aditiva(coluna):
         "total_unidades",
     }
 
-
 def criar_indicador(df, coluna):
-    """Um único valor numérico."""
 
     valor = df[coluna].iloc[0]
-
     fig = go.Figure(
         go.Indicator(
             mode="number",
@@ -129,18 +92,10 @@ def criar_indicador(df, coluna):
             }
         )
     )
-
-    fig.update_layout(
-        template=TEMA,
-        height=400,
-        title="Resultado da consulta"
-    )
-
+    fig.update_layout(template=TEMA, height=400, title="Resultado da consulta")
     return fig
 
-
 def criar_histograma(df, coluna):
-    """Distribuição de uma coluna numérica."""
 
     fig = px.histogram(
         df,
@@ -152,21 +107,11 @@ def criar_histograma(df, coluna):
             coluna: nome_legivel(coluna)
         }
     )
-
     return fig
 
-
 def criar_lista(df, coluna):
-    """Mostra uma coluna textual como tabela em imagem."""
 
-    valores = (
-        df[coluna]
-        .fillna("Não informado")
-        .astype(str)
-        .head(50)
-        .tolist()
-    )
-
+    valores = (df[coluna] .fillna("Não informado") .astype(str) .head(50) .tolist())
     fig = go.Figure(
         data=[
             go.Table(
@@ -192,40 +137,20 @@ def criar_lista(df, coluna):
             )
         ]
     )
-
     fig.update_layout(
         title=f"Lista de {nome_legivel(coluna)}",
         template=TEMA,
         height=max(350, len(valores) * 30 + 120)
     )
-
     return fig
 
-
 def criar_barras(df, categoria, valor):
-    """Gráfico de barras para texto + número."""
 
     dados = df[[categoria, valor]].copy()
     dados = dados.dropna(subset=[valor])
-
     if medida_aditiva(valor):
-        dados = (
-            dados.groupby(
-                categoria,
-                as_index=False,
-                dropna=False
-            )[valor]
-            .sum()
-        )
-
-    dados = (
-        dados.sort_values(
-            valor,
-            ascending=False
-        )
-        .head(LIMITE_CATEGORIAS)
-    )
-
+        dados = (dados.groupby(categoria, as_index=False, dropna=False)[valor] .sum())
+    dados = (dados.sort_values(valor, ascending=False) .head(LIMITE_CATEGORIAS))
     fig = px.bar(
         dados,
         x=valor,
@@ -235,26 +160,18 @@ def criar_barras(df, categoria, valor):
         title=f"{nome_legivel(valor)} por {nome_legivel(categoria)}",
         template=TEMA
     )
-
     fig.update_layout(
         height=max(450, len(dados) * 35),
         yaxis={
             "categoryorder": "total ascending"
         }
     )
-
     return fig
 
-
 def criar_barras_agrupadas(df, categoria1, categoria2, valor):
-    """Gráfico de barras agrupadas: 2 textos + 1 número."""
 
-    dados = df[
-        [categoria1, categoria2, valor]
-    ].copy()
-
+    dados = df[[categoria1, categoria2, valor]].copy()
     dados = dados.dropna(subset=[valor])
-
     if medida_aditiva(valor):
         dados = (
             dados.groupby(
@@ -264,15 +181,7 @@ def criar_barras_agrupadas(df, categoria1, categoria2, valor):
             )[valor]
             .sum()
         )
-
-    dados = (
-        dados.sort_values(
-            valor,
-            ascending=False
-        )
-        .head(LIMITE_CATEGORIAS)
-    )
-
+    dados = (dados.sort_values(valor, ascending=False) .head(LIMITE_CATEGORIAS))
     fig = px.bar(
         dados,
         x=categoria1,
@@ -287,28 +196,16 @@ def criar_barras_agrupadas(df, categoria1, categoria2, valor):
         template=TEMA,
         hover_data=[categoria1, categoria2, valor]
     )
-
-    fig.update_layout(
-        height=650,
-        xaxis_tickangle=-35
-    )
-
+    fig.update_layout(height=650, xaxis_tickangle=-35)
     return fig
 
-
 def criar_dispersao(df, numero1, numero2, categoria=None):
-    """Gráfico de dispersão com duas medidas numéricas."""
 
     colunas = [numero1, numero2]
-
     if categoria is not None:
         colunas.append(categoria)
-
     dados = df[colunas].copy()
-    dados = dados.dropna(
-        subset=[numero1, numero2]
-    )
-
+    dados = dados.dropna(subset=[numero1, numero2])
     argumentos = {
         "data_frame": dados,
         "x": numero1,
@@ -320,33 +217,18 @@ def criar_dispersao(df, numero1, numero2, categoria=None):
         "template": TEMA,
         "hover_data": colunas
     }
-
     if categoria is not None:
         argumentos["color"] = categoria
-
     fig = px.scatter(**argumentos)
-
-    fig.update_traces(
-        marker=dict(size=12, opacity=0.8)
-    )
-
+    fig.update_traces(marker=dict(size=12, opacity=0.8))
     fig.update_layout(height=600)
-
     return fig
 
-
 def criar_tabela(df):
-    """Alternativa para dados que não formam um gráfico adequado."""
 
     dados = df.head(40).copy()
-
     for coluna in dados.columns:
-        dados[coluna] = (
-            dados[coluna]
-            .fillna("Não informado")
-            .astype(str)
-        )
-
+        dados[coluna] = (dados[coluna] .fillna("Não informado") .astype(str))
     fig = go.Figure(
         data=[
             go.Table(
@@ -375,151 +257,73 @@ def criar_tabela(df):
             )
         ]
     )
-
     fig.update_layout(
         title="Dados da consulta",
         template=TEMA,
         height=max(400, len(dados) * 28 + 120)
     )
-
     return fig
 
-
 def selecionar_grafico(df):
-    """Escolhe automaticamente a visualização."""
 
     numericas, categorias = classificar_colunas(df)
-
-    numericas = ordenar_prioridade(
-        numericas,
-        PRIORIDADE_NUMERICA
-    )
-
-    categorias = ordenar_prioridade(
-        categorias,
-        PRIORIDADE_CATEGORICA
-    )
-
+    numericas = ordenar_prioridade(numericas, PRIORIDADE_NUMERICA)
+    categorias = ordenar_prioridade(categorias, PRIORIDADE_CATEGORICA)
     qtd_num = len(numericas)
     qtd_cat = len(categorias)
 
-    # Uma coluna numérica
+
     if qtd_num == 1 and qtd_cat == 0:
         if len(df) == 1:
-            return criar_indicador(
-                df,
-                numericas[0]
-            )
+            return criar_indicador(df, numericas[0])
+        return criar_histograma(df, numericas[0])
 
-        return criar_histograma(
-            df,
-            numericas[0]
-        )
 
-    # Uma ou mais colunas de texto, sem números
     if qtd_num == 0 and qtd_cat == 1:
-        return criar_lista(
-            df,
-            categorias[0]
-        )
-
+        return criar_lista(df, categorias[0])
     if qtd_num == 0:
         return criar_tabela(df)
 
-    # Uma categoria + uma medida
+
     if qtd_num == 1 and qtd_cat == 1:
-        return criar_barras(
-            df,
-            categorias[0],
-            numericas[0]
-        )
+        return criar_barras(df, categorias[0], numericas[0])
 
-    # Duas categorias + uma medida
+
     if qtd_num == 1 and qtd_cat >= 2:
-        return criar_barras_agrupadas(
-            df,
-            categorias[0],
-            categorias[1],
-            numericas[0]
-        )
+        return criar_barras_agrupadas(df, categorias[0], categorias[1], numericas[0])
 
-    # Duas medidas + uma categoria
+
     if qtd_num >= 2 and qtd_cat >= 1:
-        return criar_dispersao(
-            df,
-            numericas[0],
-            numericas[1],
-            categorias[0]
-        )
+        return criar_dispersao(df, numericas[0], numericas[1], categorias[0])
 
-    # Duas ou mais medidas numéricas
+
     if qtd_num >= 2:
-        return criar_dispersao(
-            df,
-            numericas[0],
-            numericas[1]
-        )
-
+        return criar_dispersao(df, numericas[0], numericas[1])
     return criar_tabela(df)
 
-
 def gerar_grafico(colunas, dados):
-    """Função principal chamada pelo pipeline."""
 
     try:
-        df = preparar_dados(
-            colunas,
-            dados
-        )
-
+        df = preparar_dados(colunas, dados)
         if df.empty:
-            print(
-                "\nNão existem dados para gerar o gráfico."
-            )
+            print("\nNão existem dados para gerar o gráfico.")
             return
-
         fig = selecionar_grafico(df)
-
-        PASTA_GRAFICOS.mkdir(
-            parents=True,
-            exist_ok=True
-        )
-
-        data_hora = datetime.now().strftime(
-            "%Y%m%d_%H%M%S_%f"
-        )
-
-        caminho = (
-            PASTA_GRAFICOS /
-            f"grafico_{data_hora}.png"
-        )
-
+        PASTA_GRAFICOS.mkdir(parents=True, exist_ok=True)
+        data_hora = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        caminho = (PASTA_GRAFICOS / f"grafico_{data_hora}.png")
         altura = fig.layout.height or 600
+        fig.write_image(str(caminho), width=1400, height=int(altura), scale=2)
+        print(f"\nGráfico salvo em: {caminho}")
 
-        fig.write_image(
-            str(caminho),
-            width=1400,
-            height=int(altura),
-            scale=2
-        )
 
-        print(
-            f"\nGráfico salvo em: {caminho}"
-        )
-
-        # Abre automaticamente no Windows
         if os.name == "nt":
             try:
                 os.startfile(str(caminho))
             except OSError:
-                print(
-                    "\nA imagem foi salva, mas não "
-                    "foi possível abri-la automaticamente."
-                )
-
+                print("\nA imagem foi salva, mas não " "foi possível abri-la automaticamente.")
         return caminho
-
-    except Exception as erro:
+    except Exception:
         print(
             "\nNão foi possível gerar a visualização. "
             "Verifique os dados e as dependências "
