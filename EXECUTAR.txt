@@ -26,3 +26,9 @@ Configure o .env a partir do .env.example antes de executar.
 4. **Pergunta:** A pergunta do usuário também é transformada em vetor para encontrar informações relevantes.
 5. **LLM:** Recebe as informações encontradas pelo RAG e gera a consulta SQL.
 6. **MySQL:** Executa o SQL e retorna os dados solicitados.
+
+
+**instalar bibliotecas e dependências** !!!!!
+
+1 - pip freeze > requirements.txt :: Gerar txt
+2 - python -m pip install -r requirements.txt :: Instalar
