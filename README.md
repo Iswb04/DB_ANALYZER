@@ -1,9 +1,15 @@
+
 # DB ANALYZER
 Aplicação desktop para consultar um estoque no **MySQL usando perguntas em português**, com inteligência artificial executada localmente pelo **Ollama**.
 
-<img width="1737" height="952" alt="Captura de tela 2026-10-28 184345" src="https://github.com/user-attachments/assets/f9e0ae53-5240-48c5-9c75-88478d0c418d" />
-<img width="1909" height="892" alt="image2_DB" src="https://github.com/user-attachments/assets/93aa627c-3366-476c-aca5-9fb75fa44405" />
+<img width="443" height="520" alt="Captura de tela 2026-10-28 184603" src="https://github.com/user-attachments/assets/85a4d65f-4333-4464-b7fe-911c4689a2df" />
+<img width="441" height="524" alt="Captura de tela 2026-10-28 184521" src="https://github.com/user-attachments/assets/801c2020-638a-4f1a-abb5-f74640b7ff6b" />
 <img width="1919" height="1025" alt="image1_DB" src="https://github.com/user-attachments/assets/6119d016-7b0c-42ba-a30e-91e371c0b6ab" />
+<img width="1909" height="892" alt="image2_DB" src="https://github.com/user-attachments/assets/93aa627c-3366-476c-aca5-9fb75fa44405" />
+
+<img width="1737" height="952" alt="Captura de tela 2026-10-28 184345" src="https://github.com/user-attachments/assets/f9e0ae53-5240-48c5-9c75-88478d0c418d" />
+
+
 
 
 ## Sobre o projeto
