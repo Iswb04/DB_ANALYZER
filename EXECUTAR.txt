@@ -32,3 +32,14 @@ Configure o .env a partir do .env.example antes de executar.
 
 1 - pip freeze > requirements.txt :: Gerar txt
 2 - python -m pip install -r requirements.txt :: Instalar
+
+
+**principais bibliotecas** !!!!!
+
+1 - LangChain + Ollama: integração com modelos de IA.
+2 - ChromaDB: armazenamento vetorial para RAG.
+3 - MySQL Connector: conexão com o banco de dados.
+4 - Pandas: manipulação e análise de dados.
+5 - Plotly: geração de gráficos interativos.
+6 - SQLGlot: análise e validação de consultas SQL.
+7 - CustomTkinter: interface gráfica.
